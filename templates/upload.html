@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document — Chronicle AI{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold text-white mb-1">Upload Document</h2>
+                <p class="text-secondary">Chronicle AI extracts text, summarizes content, creates smart notes, and isolates timeline events automatically.</p>
+            </div>
+
+            <div class="glass-card p-4 p-md-5 mb-4 position-relative">
+                <!-- Loading Overlay (Shown during upload and AI synthesis) -->
+                <div id="uploadLoadingOverlay" class="d-none position-absolute top-0 start-0 w-100 h-100 rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-4" style="background: rgba(9, 13, 22, 0.92); backdrop-filter: blur(8px); z-index: 10;">
+                    <div class="spinner-border text-primary mb-3" style="width: 3.5rem; height: 3.5rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h4 class="text-white fw-bold mb-2">Analyzing with Chronicle AI...</h4>
+                    <p class="text-secondary small mb-1">1. Ingesting &amp; parsing document structure</p>
+                    <p class="text-secondary small mb-1">2. Generating structured executive summary via Groq Llama 3.3</p>
+                    <p class="text-secondary small mb-0">3. Extracting conceptual notes and milestone timeline</p>
+                </div>
+
+                <form id="documentUploadForm" method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data">
+                    <!-- Dropzone -->
+                    <div class="upload-dropzone mb-4" id="uploadDropzone">
+                        <div class="upload-icon-circle">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                        </div>
+                        <h4 class="fw-bold text-white mb-1">Drag &amp; drop your document here</h4>
+                        <p class="text-secondary small mb-3">or click to browse from your device</p>
+                        <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-dark border border-secondary border-opacity-25 small text-muted">
+                            <i class="bi bi-file-earmark-pdf text-danger"></i> PDF
+                            <span>•</span>
+                            <i class="bi bi-file-earmark-text text-info"></i> TXT / Markdown
+                            <span>•</span>
+                            <span>Max 16 MB</span>
+                        </div>
+                        <input type="file" id="documentFileInput" name="document" class="d-none" accept=".pdf,.txt,.md">
+                    </div>
+
+                    <!-- Selected file info -->
+                    <div id="selectedFileInfo" class="d-none glass-card p-3 mb-4 border-info border-opacity-25 d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="stat-icon cyan" style="width: 44px; height: 44px; font-size: 1.25rem;">
+                                <i class="bi bi-file-check"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-white mb-0" id="selectedFileName">filename.pdf</div>
+                                <div class="small text-muted" id="selectedFileSize">0.0 MB</div>
+                            </div>
+                        </div>
+                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">Ready to Process</span>
+                    </div>
+
+                    <!-- Extraction Options -->
+                    <div class="mb-4 p-3 rounded-3 bg-dark bg-opacity-50 border border-secondary border-opacity-25">
+                        <h6 class="text-white fw-bold mb-3 small text-uppercase letter-spacing-1">
+                            <i class="bi bi-sliders me-2 text-info"></i> Automated AI Extraction Pipeline
+                        </h6>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="optSummary" checked disabled>
+                            <label class="form-check-label text-white small" for="optSummary">
+                                <strong>Executive Summary &amp; Key Findings</strong> — Generate multi-tier summary &amp; action items
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="optNotes" checked disabled>
+                            <label class="form-check-label text-white small" for="optNotes">
+                                <strong>Smart Notes Extraction</strong> — Automatically isolate concepts, definitions &amp; tags
+                            </label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="optTimeline" checked disabled>
+                            <label class="form-check-label text-white small" for="optTimeline">
+                                <strong>Chronological Timeline</strong> — Detect dates, milestones, deadlines &amp; events
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btnStartProcessing" class="btn-chronicle w-100 py-3 justify-content-center fs-5" disabled>
+                        <i class="bi bi-stars"></i> Ingest &amp; Process with AI
+                    </button>
+                </form>
+            </div>
+
+            <!-- Helpful Hints -->
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100">
+                        <i class="bi bi-file-earmark-pdf fs-3 text-danger mb-2 d-block"></i>
+                        <h6 class="text-white fw-semibold mb-1">Native PDF Support</h6>
+                        <p class="text-secondary small mb-0">High-fidelity parsing via PyMuPDF preserves structure and headers.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100">
+                        <i class="bi bi-cpu fs-3 text-info mb-2 d-block"></i>
+                        <h6 class="text-white fw-semibold mb-1">Llama 3.3 70B Speed</h6>
+                        <p class="text-secondary small mb-0">Ultra-fast Groq LPU engine delivers instant structured inference.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-3 text-center h-100">
+                        <i class="bi bi-database-check fs-3 text-emerald mb-2 d-block"></i>
+                        <h6 class="text-white fw-semibold mb-1">Persistent Vault</h6>
+                        <p class="text-secondary small mb-0">Saved to Supabase with seamless local SQLite resilience.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

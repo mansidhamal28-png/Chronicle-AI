@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Intelligent Document Chat — Chronicle AI{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <!-- Chat Top Bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+        <div>
+            <h3 class="fw-bold text-white mb-1">
+                <i class="bi bi-chat-quote-fill text-info me-2"></i> Intelligent Document Chat
+            </h3>
+            <p class="text-secondary small mb-0">Ask questions in natural language. Answers are grounded in your uploaded documents.</p>
+        </div>
+
+        <!-- Scope / Document Selector -->
+        <div class="d-flex align-items-center gap-2">
+            <label for="documentSelectScope" class="small text-secondary fw-semibold text-nowrap">Context Scope:</label>
+            <select id="documentSelectScope" class="form-select form-control-chronicle py-1 px-3" style="min-width: 240px;" onchange="location.href = this.value;">
+                <option value="{{ url_for('chat_view') }}" {% if not selected_doc_id %}selected{% endif %}>
+                    📚 All Documents (Library-wide)
+                </option>
+                {% for doc in documents %}
+                    <option value="{{ url_for('chat_view', doc_id=doc.id) }}" {% if selected_doc_id == doc.id %}selected{% endif %}>
+                        📄 {{ doc.filename }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="button" id="clearChatBtn" class="btn btn-outline-secondary btn-sm px-2" title="Clear conversation history">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Document Context Badge -->
+    <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 mb-3 bg-dark bg-opacity-60 border border-secondary border-opacity-25">
+        <div class="d-flex align-items-center gap-2 small">
+            <span class="text-muted">Target Knowledge:</span>
+            {% if active_document %}
+                <span class="badge bg-primary bg-opacity-25 text-info border border-primary border-opacity-25">
+                    <i class="bi bi-file-earmark-text me-1"></i> {{ active_document.filename }}
+                </span>
+                <span class="text-muted">({{ (active_document.file_size / 1024) | round(1) }} KB, {{ active_document.page_count }} pages)</span>
+            {% else %}
+                <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25">
+                    <i class="bi bi-collection me-1"></i> Entire Document Library ({{ documents|length }} documents)
+                </span>
+            {% endif %}
+        </div>
+
+        <div class="small text-muted d-none d-md-block">
+            <i class="bi bi-cpu text-cyan me-1"></i> Engine: Groq Llama 3.3
+        </div>
+    </div>
+
+    <!-- Chat Window Container -->
+    <div class="chat-window shadow-lg">
+        <!-- Message list -->
+        <div class="chat-messages" id="chatMessages">
+            {% if chat_history %}
+                {% for msg in chat_history %}
+                    <div class="chat-msg {{ msg.role }}">
+                        <div class="d-flex align-items-center gap-2 mb-1 {% if msg.role == 'user' %}justify-content-end text-muted{% else %}text-info{% endif %} small">
+                            {% if msg.role == 'user' %}
+                                <i class="bi bi-person-fill"></i>
+                                <span class="fw-semibold">You</span>
+                            {% else %}
+                                <i class="bi bi-stars text-cyan"></i>
+                                <span class="fw-semibold">Chronicle AI</span>
+                            {% endif %}
+                            <span class="text-muted" style="font-size: 0.72rem;">{{ msg.created_at[11:16] }}</span>
+                        </div>
+                        <div class="msg-bubble">
+                            {{ msg.message | replace('\n', '<br>') | safe }}
+                            {% if msg.sources %}
+                                <div class="mt-2 pt-2 border-top border-secondary border-opacity-25 small text-info opacity-75">
+                                    <i class="bi bi-bookmark-check me-1"></i> {{ msg.sources }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <!-- Empty state -->
+                <div class="text-center text-muted py-5 my-auto" id="chatEmptyState">
+                    <div class="upload-icon-circle mb-3" style="width: 60px; height: 60px; font-size: 1.6rem;">
+                        <i class="bi bi-chat-heart"></i>
+                    </div>
+                    <h5 class="fw-bold text-white mb-2">Ask Chronicle AI anything</h5>
+                    <p class="small text-secondary mb-4" style="max-width: 480px; margin: 0 auto;">
+                        Query specific facts, generate comparative analysis, or ask for explanations directly from your documents.
+                    </p>
+
+                    <!-- Quick Prompt Suggestions -->
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <button class="btn btn-sm btn-glass text-secondary" onclick="useSuggestedPrompt('What are the key findings and main takeaways of this document?')">
+                            💡 Key findings &amp; takeaways
+                        </button>
+                        <button class="btn btn-sm btn-glass text-secondary" onclick="useSuggestedPrompt('List all critical milestones and deadlines mentioned.')">
+                            📅 Deadlines &amp; milestones
+                        </button>
+                        <button class="btn btn-sm btn-glass text-secondary" onclick="useSuggestedPrompt('What are the primary challenges or risks highlighted?')">
+                            ⚠️ Risks &amp; challenges
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Chat Footer & Input Form -->
+        <div class="chat-footer">
+            <input type="hidden" id="chatDocumentId" value="{{ selected_doc_id or '' }}">
+            <div class="input-group">
+                <textarea id="chatInput" class="form-control form-control-chronicle py-2" rows="2" placeholder="Ask a question about this document... (Press Enter to send, Shift+Enter for newline)"></textarea>
+                <button class="btn-chronicle px-4" id="chatSendBtn" type="button">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+            <div class="d-flex align-items-center justify-content-between mt-2 small text-muted">
+                <span><i class="bi bi-shield-check text-success me-1"></i> Responses strictly verified against indexed documents</span>
+                <span class="d-none d-sm-inline">Press <kbd class="bg-dark text-white px-1 rounded">Enter</kbd> to submit</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function useSuggestedPrompt(text) {
+    const input = document.getElementById('chatInput');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}AI Chronological Timeline — Chronicle AI{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <!-- Top Bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-white mb-1">
+                <i class="bi bi-calendar2-range-fill text-emerald me-2" style="color: #34d399;"></i> Chronological Timeline
+            </h3>
+            <p class="text-secondary small mb-0">Automatic timeline reconstruction of all dates, deadlines, milestones, and phases from your documents.</p>
+        </div>
+
+        <a href="{{ url_for('upload_document') }}" class="btn-chronicle">
+            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Extract From New File
+        </a>
+    </div>
+
+    <!-- Timeline Filters Bar -->
+    <div class="glass-card p-3 mb-4">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary border-opacity-25 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="timelineSearchInput" class="form-control form-control-chronicle" placeholder="Search events, dates, or milestones...">
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <select id="timelineDocFilter" class="form-select form-control-chronicle" onchange="location.href = this.value;">
+                    <option value="{{ url_for('timeline_view') }}" {% if not selected_doc_id %}selected{% endif %}>
+                        All Ingested Documents
+                    </option>
+                    {% for doc in documents %}
+                        <option value="{{ url_for('timeline_view', doc_id=doc.id) }}" {% if selected_doc_id == doc.id %}selected{% endif %}>
+                            {{ doc.filename }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3 text-md-end text-muted small">
+                Displaying <span class="fw-bold text-white">{{ events|length }}</span> identified events
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Visualization -->
+    <div class="glass-card p-4 p-md-5">
+        {% if events %}
+            <div class="timeline-track">
+                {% for event in events %}
+                    <div class="timeline-item" data-doc-id="{{ event.document_id }}">
+                        <div class="timeline-dot"></div>
+                        <div class="glass-card glass-card-interactive p-4 border-opacity-50">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                <span class="timeline-date-badge">
+                                    <i class="bi bi-calendar3 me-1"></i> {{ event.date_str }}
+                                </span>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge-category badge-milestone text-capitalize">
+                                        {{ event.event_type }}
+                                    </span>
+
+                                    <form method="POST" action="{{ url_for('delete_timeline_event_route', event_id=event.id) }}" onsubmit="return confirm('Delete this timeline marker?');">
+                                        <button type="submit" class="btn btn-link text-muted p-0" title="Delete event">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <h5 class="fw-bold text-white mb-2">{{ event.title }}</h5>
+
+                            {% if event.description %}
+                                <p class="text-secondary small mb-3" style="line-height: 1.6;">
+                                    {{ event.description }}
+                                </p>
+                            {% endif %}
+
+                            {% if event.document_name %}
+                                <div class="pt-2 border-top border-secondary border-opacity-25 small text-muted d-flex align-items-center gap-1">
+                                    <i class="bi bi-file-earmark-text text-info"></i>
+                                    <span>Source:</span>
+                                    <a href="{{ url_for('document_detail', doc_id=event.document_id) }}" class="text-info text-decoration-none">
+                                        {{ event.document_name }}
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="upload-icon-circle mb-3" style="width: 60px; height: 60px; font-size: 1.6rem;">
+                    <i class="bi bi-calendar-x"></i>
+                </div>
+                <h5 class="fw-bold text-white mb-2">No timeline events extracted yet</h5>
+                <p class="text-secondary small mb-4" style="max-width: 450px; margin: 0 auto;">
+                    Upload meeting notes, project roadmaps, financial reports, or historical archives to see dates and milestones automatically chronologized.
+                </p>
+                <a href="{{ url_for('upload_document') }}" class="btn-chronicle">
+                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Document to Extract Timeline
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

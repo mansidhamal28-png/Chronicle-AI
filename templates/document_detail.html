@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.filename }} — Chronicle AI Insights{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}" class="text-secondary">Dashboard</a></li>
+                    <li class="breadcrumb-item active text-white" aria-current="page">{{ document.filename }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-3">
+                <h3 class="fw-bold text-white mb-0">{{ document.filename }}</h3>
+                <span class="badge-category {% if document.file_type == 'pdf' %}badge-definition{% else %}badge-concept{% endif %}">
+                    {{ document.file_type.upper() }}
+                </span>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('chat_view', doc_id=document.id) }}" class="btn-chronicle">
+                <i class="bi bi-chat-quote-fill"></i> Chat with this Doc
+            </a>
+            <form method="POST" action="{{ url_for('delete_document', doc_id=document.id) }}" onsubmit="return confirm('Delete {{ document.filename }}?');" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Document Metadata Card -->
+    <div class="glass-card p-3 mb-4">
+        <div class="row g-3 text-center text-md-start align-items-center">
+            <div class="col-6 col-md-3">
+                <div class="small text-muted">File Size</div>
+                <div class="fw-bold text-white">{{ (document.file_size / 1024) | round(1) }} KB</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="small text-muted">Pages / Extent</div>
+                <div class="fw-bold text-white">{{ document.page_count }} {% if document.page_count == 1 %}page{% else %}pages{% endif %}</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="small text-muted">Character Volume</div>
+                <div class="fw-bold text-white">{{ document.char_count }} chars</div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="small text-muted">Ingestion Date</div>
+                <div class="fw-bold text-white">{{ document.created_at[:10] }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nav Tabs for Insights -->
+    <ul class="nav nav-pills chronicle-tabs mb-4" id="documentInsightTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#tab-summary" type="button" role="tab" aria-selected="true">
+                <i class="bi bi-file-earmark-text me-1"></i> AI Summary
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="notes-tab" data-bs-toggle="tab" data-bs-target="#tab-notes" type="button" role="tab" aria-selected="false">
+                <i class="bi bi-journal-check me-1"></i> Smart Notes ({{ notes|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#tab-timeline" type="button" role="tab" aria-selected="false">
+                <i class="bi bi-calendar-event me-1"></i> Timeline ({{ events|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#tab-raw" type="button" role="tab" aria-selected="false">
+                <i class="bi bi-code-slash me-1"></i> Extracted Text
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="documentInsightTabContent">
+        <!-- 1. AI Summary Tab -->
+        <div class="tab-pane fade show active" id="tab-summary" role="tabpanel">
+            <div class="glass-card p-4 p-md-5 mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h4 class="fw-bold text-white mb-0">
+                        <i class="bi bi-stars text-cyan me-2"></i> Executive Summary &amp; Core Analysis
+                    </h4>
+                    <button class="btn-glass small py-1 px-3 btn-copy-clipboard" data-target="summaryContentBox">
+                        <i class="bi bi-clipboard me-1"></i> Copy Summary
+                    </button>
+                </div>
+
+                <div id="summaryContentBox">
+                    <!-- Executive summary block -->
+                    <div class="mb-4">
+                        <h6 class="text-info fw-bold text-uppercase small letter-spacing-1 mb-2">Executive Overview</h6>
+                        <div class="p-3 rounded-3 bg-dark bg-opacity-40 border border-secondary border-opacity-25 text-white lead fs-6" style="line-height: 1.8;">
+                            {{ document.summary_executive or "No executive summary available for this file." }}
+                        </div>
+                    </div>
+
+                    <!-- Key Findings block -->
+                    {% if findings_list %}
+                        <div class="mb-4">
+                            <h6 class="text-primary fw-bold text-uppercase small letter-spacing-1 mb-3">Key Findings &amp; Insights</h6>
+                            <div class="row g-2">
+                                {% for finding in findings_list %}
+                                    <div class="col-12">
+                                        <div class="p-3 glass-card d-flex align-items-start gap-3">
+                                            <i class="bi bi-check2-circle text-info fs-5 mt-1"></i>
+                                            <div class="text-white">{{ finding }}</div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Action items block -->
+                    {% if action_items_list %}
+                        <div class="mb-2">
+                            <h6 class="text-warning fw-bold text-uppercase small letter-spacing-1 mb-3">Action Items &amp; Next Steps</h6>
+                            <div class="row g-2">
+                                {% for action in action_items_list %}
+                                    <div class="col-12">
+                                        <div class="p-3 glass-card d-flex align-items-start gap-3 border-warning border-opacity-25">
+                                            <i class="bi bi-arrow-right-circle text-warning fs-5 mt-1"></i>
+                                            <div class="text-white">{{ action }}</div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Smart Notes Tab -->
+        <div class="tab-pane fade" id="tab-notes" role="tabpanel">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-white mb-0">Concepts Extracted from this Document</h5>
+                <button class="btn-chronicle small py-1 px-3" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add Custom Note
+                </button>
+            </div>
+
+            {% if notes %}
+                <div class="row g-3">
+                    {% for note in notes %}
+                        <div class="col-md-6">
+                            <div class="glass-card p-4 h-100 d-flex flex-column">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                    <span class="badge-category 
+                                        {% if note.category == 'Definition' %}badge-definition
+                                        {% elif note.category == 'Action Item' %}badge-action
+                                        {% else %}badge-concept{% endif %}">
+                                        {{ note.category }}
+                                    </span>
+                                    <form method="POST" action="{{ url_for('delete_note_route', note_id=note.id) }}" onsubmit="return confirm('Delete this note?');">
+                                        <button type="submit" class="btn btn-link text-muted p-0">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                <h5 class="fw-bold text-white mb-2">{{ note.title }}</h5>
+                                <p class="text-secondary small flex-grow-1" style="white-space: pre-line;">{{ note.content }}</p>
+                                {% if note.tags %}
+                                    <div class="d-flex flex-wrap gap-1 pt-2 border-top border-secondary border-opacity-25">
+                                        {% for tag in note.tags.split(',') %}
+                                            <span class="badge bg-secondary bg-opacity-25 text-info small">#{{ tag.strip() }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="glass-card p-5 text-center">
+                    <p class="text-secondary mb-3">No conceptual notes extracted yet for this document.</p>
+                    <button class="btn-chronicle" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                        <i class="bi bi-plus-circle me-1"></i> Create First Note
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 3. Timeline Tab -->
+        <div class="tab-pane fade" id="tab-timeline" role="tabpanel">
+            <div class="glass-card p-4 p-md-5">
+                <h5 class="fw-bold text-white mb-4">
+                    <i class="bi bi-calendar2-range text-emerald me-2"></i> Chronological Milestones &amp; Events
+                </h5>
+
+                {% if events %}
+                    <div class="timeline-track">
+                        {% for event in events %}
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="glass-card p-3">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                        <span class="timeline-date-badge">{{ event.date_str }}</span>
+                                        <span class="badge-category badge-milestone">{{ event.event_type }}</span>
+                                    </div>
+                                    <h6 class="fw-bold text-white mb-1">{{ event.title }}</h6>
+                                    <p class="text-secondary small mb-0">{{ event.description }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-x fs-1 text-muted d-block mb-3"></i>
+                        <p class="text-secondary">No chronological milestones or dates were identified in this document.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 4. Raw Extracted Text Tab -->
+        <div class="tab-pane fade" id="tab-raw" role="tabpanel">
+            <div class="glass-card p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="fw-bold text-white mb-0">Raw Extracted Document Text</h5>
+                    <button class="btn-glass small py-1 px-3 btn-copy-clipboard" data-target="rawExtractedText">
+                        <i class="bi bi-clipboard me-1"></i> Copy Raw Text
+                    </button>
+                </div>
+                <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25" style="max-height: 500px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; line-height: 1.6; color: #cbd5e1; white-space: pre-wrap;" id="rawExtractedText">{{ document.extracted_text }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Note -->
+<div class="modal fade" id="addNoteModal" tabindex="-1" aria-labelledby="addNoteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-card border-secondary border-opacity-50">
+            <div class="modal-header border-secondary border-opacity-25">
+                <h5 class="modal-title text-white fw-bold" id="addNoteModalLabel">Create Custom Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_note_route') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="document_id" value="{{ document.id }}">
+                    <div class="mb-3">
+                        <label for="note_title" class="form-label text-secondary small fw-semibold">Note Title</label>
+                        <input type="text" class="form-control form-control-chronicle" id="note_title" name="title" required placeholder="e.g. Critical Theorem or Metric">
+                    </div>
+                    <div class="mb-3">
+                        <label for="note_category" class="form-label text-secondary small fw-semibold">Category</label>
+                        <select class="form-select form-control-chronicle" id="note_category" name="category">
+                            <option value="Key Concept" selected>Key Concept</option>
+                            <option value="Definition">Definition</option>
+                            <option value="Action Item">Action Item</option>
+                            <option value="Decision">Decision</option>
+                            <option value="Formula / Rule">Formula / Rule</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="note_content" class="form-label text-secondary small fw-semibold">Content</label>
+                        <textarea class="form-control form-control-chronicle" id="note_content" name="content" rows="4" required placeholder="Note details, observations, or key takeaway..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="note_tags" class="form-label text-secondary small fw-semibold">Tags (comma separated)</label>
+                        <input type="text" class="form-control form-control-chronicle" id="note_tags" name="tags" placeholder="ml, neural-nets, phase-1">
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-chronicle">Save Note</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

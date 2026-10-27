@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Notes &amp; Concepts — Chronicle AI{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <!-- Top Bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-white mb-1">
+                <i class="bi bi-journal-bookmark-fill text-purple me-2" style="color: #c084fc;"></i> Smart Notes Vault
+            </h3>
+            <p class="text-secondary small mb-0">Browse key concepts, formal definitions, and action points extracted automatically or created manually.</p>
+        </div>
+
+        <button class="btn-chronicle" data-bs-toggle="modal" data-bs-target="#createNoteGlobalModal">
+            <i class="bi bi-plus-lg me-1"></i> New Custom Note
+        </button>
+    </div>
+
+    <!-- Filters Bar -->
+    <div class="glass-card p-3 mb-4">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-dark border-secondary border-opacity-25 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="noteSearchInput" class="form-control form-control-chronicle" placeholder="Search notes by title, concept, or tags...">
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <select id="noteCategoryFilter" class="form-select form-control-chronicle">
+                    <option value="all">All Categories</option>
+                    <option value="Key Concept">Key Concept</option>
+                    <option value="Definition">Definition</option>
+                    <option value="Action Item">Action Item</option>
+                    <option value="Decision">Decision</option>
+                    <option value="Important Figure">Important Figure</option>
+                </select>
+            </div>
+
+            <div class="col-md-3 text-md-end text-muted small">
+                Showing <span class="fw-bold text-white">{{ notes|length }}</span> total notes
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes Grid -->
+    {% if notes %}
+        <div class="row g-3" id="notesListContainer">
+            {% for note in notes %}
+                <div class="col-md-6 col-lg-4 note-card-item" data-category="{{ note.category }}">
+                    <div class="glass-card glass-card-interactive p-4 h-100 d-flex flex-column border-opacity-50">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <span class="badge-category 
+                                {% if note.category == 'Definition' %}badge-definition
+                                {% elif note.category == 'Action Item' %}badge-action
+                                {% else %}badge-concept{% endif %}">
+                                {{ note.category }}
+                            </span>
+
+                            <form method="POST" action="{{ url_for('delete_note_route', note_id=note.id) }}" onsubmit="return confirm('Delete this note?');">
+                                <button type="submit" class="btn btn-link text-muted p-0" title="Delete note">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+
+                        <h5 class="fw-bold text-white mb-2">{{ note.title }}</h5>
+
+                        {% if note.document_name %}
+                            <div class="small text-info mb-2">
+                                <i class="bi bi-link-45deg"></i>
+                                <a href="{{ url_for('document_detail', doc_id=note.document_id) }}" class="text-info text-decoration-none">
+                                    {{ note.document_name }}
+                                </a>
+                            </div>
+                        {% endif %}
+
+                        <p class="text-secondary small flex-grow-1" style="white-space: pre-line; line-height: 1.6;">
+                            {{ note.content }}
+                        </p>
+
+                        {% if note.tags %}
+                            <div class="d-flex flex-wrap gap-1 pt-2 border-top border-secondary border-opacity-25 mt-2">
+                                {% for tag in note.tags.split(',') %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-info small">#{{ tag.strip() }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="small text-muted mt-2 pt-1">
+                            <i class="bi bi-clock me-1"></i> {{ note.created_at[:10] }}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="glass-card p-5 text-center">
+            <div class="upload-icon-circle mb-3" style="width: 60px; height: 60px; font-size: 1.6rem;">
+                <i class="bi bi-journal-plus"></i>
+            </div>
+            <h5 class="fw-bold text-white mb-2">No notes created or extracted yet</h5>
+            <p class="text-secondary small mb-4" style="max-width: 450px; margin: 0 auto;">
+                When you upload documents, Chronicle AI automatically extracts definitions, key concepts, and action items. You can also craft custom notes right here.
+            </p>
+            <button class="btn-chronicle" data-bs-toggle="modal" data-bs-target="#createNoteGlobalModal">
+                <i class="bi bi-plus-circle me-1"></i> Create First Note
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Create Note -->
+<div class="modal fade" id="createNoteGlobalModal" tabindex="-1" aria-labelledby="createNoteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-card border-secondary border-opacity-50">
+            <div class="modal-header border-secondary border-opacity-25">
+                <h5 class="modal-title text-white fw-bold" id="createNoteModalLabel">Create Custom Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_note_route') }}">
+                <div class="modal-body">
+                    {% if documents %}
+                        <div class="mb-3">
+                            <label for="doc_link" class="form-label text-secondary small fw-semibold">Link to Document (Optional)</label>
+                            <select class="form-select form-control-chronicle" id="doc_link" name="document_id">
+                                <option value="">None (Standalone Note)</option>
+                                {% for doc in documents %}
+                                    <option value="{{ doc.id }}">{{ doc.filename }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="new_note_title" class="form-label text-secondary small fw-semibold">Note Title</label>
+                        <input type="text" class="form-control form-control-chronicle" id="new_note_title" name="title" required placeholder="e.g. Core Principle / Architectural Decision">
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_note_category" class="form-label text-secondary small fw-semibold">Category</label>
+                        <select class="form-select form-control-chronicle" id="new_note_category" name="category">
+                            <option value="Key Concept" selected>Key Concept</option>
+                            <option value="Definition">Definition</option>
+                            <option value="Action Item">Action Item</option>
+                            <option value="Decision">Decision</option>
+                            <option value="Formula / Rule">Formula / Rule</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_note_content" class="form-label text-secondary small fw-semibold">Content</label>
+                        <textarea class="form-control form-control-chronicle" id="new_note_content" name="content" rows="4" required placeholder="Enter concept breakdown, formula, or action item..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_note_tags" class="form-label text-secondary small fw-semibold">Tags (comma separated)</label>
+                        <input type="text" class="form-control form-control-chronicle" id="new_note_tags" name="tags" placeholder="ai, architecture, sprint-1">
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-chronicle">Save Note</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
